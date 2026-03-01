@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once 'config.php';
 
 function redirigirEspecialidades($mensaje)
@@ -21,8 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ok = $stmt->execute();
     $stmt->close();
     redirigirEspecialidades($ok ? 'Especialidad actualizada.' : 'No se pudo actualizar la especialidad.');
-  }
-  else {
+  } else {
     $stmt = $conexion->prepare('INSERT INTO especialidades (nombre) VALUES (?)');
     $stmt->bind_param('s', $nombre);
     $ok = $stmt->execute();
@@ -38,7 +37,7 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'eliminar' && isset($_GET['id_
     $stmt->bind_param('i', $id_especialidad);
     $ok = $stmt->execute();
     $stmt->close();
-    redirigirEspecialidades($ok ? 'Especialidad eliminada.' : 'No se pudo eliminar la especialidad. Si tiene profesores relacionados, eliminarlos o reasignarlos primero.');
+    redirigirEspecialidades($ok ? 'Especialidad eliminada.' : 'No se pudo eliminar la especialidad. Si tiene profesores relacionados, eliminarlos primero.');
   }
 }
 
@@ -60,56 +59,25 @@ $listado = $conexion->query('SELECT id_especialidad, nombre FROM especialidades 
 ?>
 <!doctype html>
 <html lang="es">
-<!--begin::Head-->
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <title>CRUD Especialidades | AdminLTE 4</title>
-  <!--begin::Accessibility Meta Tags-->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
-  <!--end::Accessibility Meta Tags-->
   <meta name="supported-color-schemes" content="light dark" />
   <link rel="preload" href="css/adminlte.css" as="style" />
-  <!--begin::Fonts-->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css"
-    integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q="
-    crossorigin="anonymous"
-    media="print"
-    onload="this.media='all'"
-  />
-  <!--end::Fonts-->
-  <!--begin::Third Party Plugin(OverlayScrollbars)-->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css"
-    crossorigin="anonymous"
-  />
-  <!--end::Third Party Plugin(OverlayScrollbars)-->
-  <!--begin::Third Party Plugin(Bootstrap Icons)-->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
-    crossorigin="anonymous"
-  />
-  <!--end::Third Party Plugin(Bootstrap Icons)-->
-  <!--begin::Required Plugin(AdminLTE)-->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q=" crossorigin="anonymous" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="css/adminlte.css" />
-  <!--end::Required Plugin(AdminLTE)-->
 </head>
-<!--end::Head-->
-<!--begin::Body-->
 <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
-  <!--begin::App Wrapper-->
   <div class="app-wrapper">
 
-    <!--begin::Header-->
     <nav class="app-header navbar navbar-expand bg-body">
       <div class="container-fluid">
-        <!--begin::Start Navbar Links-->
         <ul class="navbar-nav">
           <li class="nav-item">
             <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
@@ -117,70 +85,50 @@ $listado = $conexion->query('SELECT id_especialidad, nombre FROM especialidades 
             </a>
           </li>
         </ul>
-        <!--end::Start Navbar Links-->
       </div>
     </nav>
-    <!--end::Header-->
 
-    <!--begin::Sidebar-->
     <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
-      <!--begin::Sidebar Brand-->
       <div class="sidebar-brand">
         <a href="../index.html" class="brand-link">
-          <img
-            src="../assets/img/AdminLTELogo.png"
-            alt="AdminLTE Logo"
-            class="brand-image opacity-75 shadow"
-          />
+          <img src="../assets/img/AdminLTELogo.png" alt="AdminLTE Logo" class="brand-image opacity-75 shadow" />
           <span class="brand-text fw-light">AdminLTE 4</span>
         </a>
       </div>
-      <!--end::Sidebar Brand-->
-      <!--begin::Sidebar Wrapper-->
       <div class="sidebar-wrapper">
         <nav class="mt-2">
-          <ul
-            class="nav sidebar-menu flex-column"
-            data-lte-toggle="treeview"
-            role="navigation"
-            aria-label="Main navigation"
-            data-accordion="false"
-          >
+          <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation" aria-label="Main navigation" data-accordion="false">
             <li class="nav-item">
-              <a href="especialidades.php" class="nav-link">
+              <a href="carreras.php" class="nav-link">
                 <i class="nav-icon bi bi-mortarboard-fill"></i>
-                <p>Especialidades</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="profesores.php" class="nav-link">
-                <i class="nav-icon bi bi-people-fill"></i>
-                <p>Profesores</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="carreras.php" class="nav-link active">
-                <i class="nav-icon bi bi-bookmark-star-fill"></i>
                 <p>Carreras</p>
               </a>
             </li>
             <li class="nav-item">
               <a href="alumnos.php" class="nav-link">
-                <i class="nav-icon bi bi-person-workspace"></i>
+                <i class="nav-icon bi bi-people-fill"></i>
                 <p>Alumnos</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="especialidades.php" class="nav-link active">
+                <i class="nav-icon bi bi-bookmark-star-fill"></i>
+                <p>Especialidades</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="profesores.php" class="nav-link">
+                <i class="nav-icon bi bi-person-workspace"></i>
+                <p>Profesores</p>
               </a>
             </li>
           </ul>
         </nav>
       </div>
-      <!--end::Sidebar Wrapper-->
     </aside>
-    <!--end::Sidebar-->
 
-    <!--begin::App Main-->
     <main class="app-main">
 
-      <!--begin::App Content Header-->
       <div class="app-content-header">
         <div class="container-fluid">
           <div class="row">
@@ -196,14 +144,11 @@ $listado = $conexion->query('SELECT id_especialidad, nombre FROM especialidades 
           </div>
         </div>
       </div>
-      <!--end::App Content Header-->
 
-      <!--begin::App Content-->
       <div class="app-content">
         <div class="container-fluid">
           <div class="row g-4">
 
-            <!--begin::Col Formulario-->
             <div class="col-8">
               <div class="card card-primary card-outline mb-4">
                 <div class="card-header">
@@ -213,27 +158,19 @@ $listado = $conexion->query('SELECT id_especialidad, nombre FROM especialidades 
                 </div>
                 <form method="post" action="especialidades.php">
                   <div class="card-body">
-
                     <?php if (isset($_GET['msg'])): ?>
                       <div class="alert alert-info">
                         <?php echo htmlspecialchars($_GET['msg']); ?>
                       </div>
-                    <?php
-endif; ?>
+                    <?php endif; ?>
 
                     <input type="hidden" name="id_especialidad" value="<?php echo (int)$especialidadEditar['id_especialidad']; ?>">
 
                     <div class="mb-3">
                       <label class="form-label">Nombre de la especialidad</label>
-                      <input
-                        type="text"
-                        class="form-control"
-                        name="nombre"
-                        required
-                        value="<?php echo htmlspecialchars((string)$especialidadEditar['nombre']); ?>"
-                      >
+                      <input type="text" class="form-control" name="nombre" required
+                        value="<?php echo htmlspecialchars((string)$especialidadEditar['nombre']); ?>">
                     </div>
-
                   </div>
                   <div class="card-footer">
                     <button class="btn btn-primary" type="submit">
@@ -241,15 +178,12 @@ endif; ?>
                     </button>
                     <?php if ($especialidadEditar['id_especialidad'] > 0): ?>
                       <a href="especialidades.php" class="btn btn-secondary ms-2">Cancelar</a>
-                    <?php
-endif; ?>
+                    <?php endif; ?>
                   </div>
                 </form>
               </div>
             </div>
-            <!--end::Col Formulario-->
 
-            <!--begin::Col Listado-->
             <div class="col-8">
               <div class="card card-outline mb-4">
                 <div class="card-header">
@@ -280,60 +214,42 @@ endif; ?>
                             </a>
                           </td>
                         </tr>
-                      <?php
-endwhile; ?>
+                      <?php endwhile; ?>
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
-            <!--end::Col Listado-->
 
           </div>
         </div>
       </div>
-      <!--end::App Content-->
 
     </main>
-    <!--end::App Main-->
 
-    <!--begin::Footer-->
     <footer class="app-footer">
       <strong>Copyright &copy; 2014-2025&nbsp;<a href="https://adminlte.io" class="text-decoration-none">AdminLTE.io</a>.</strong>
       All rights reserved.
     </footer>
-    <!--end::Footer-->
 
   </div>
-  <!--end::App Wrapper-->
 
-  <!--begin::Scripts-->
   <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es6.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
   <script src="js/adminlte.js"></script>
   <script>
     const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
-    const Default = {
-      scrollbarTheme: 'os-theme-light',
-      scrollbarAutoHide: 'leave',
-      scrollbarClickScroll: true,
-    };
+    const Default = { scrollbarTheme: 'os-theme-light', scrollbarAutoHide: 'leave', scrollbarClickScroll: true };
     document.addEventListener('DOMContentLoaded', function () {
       const sidebarWrapper = document.querySelector(SELECTOR_SIDEBAR_WRAPPER);
       if (sidebarWrapper && OverlayScrollbarsGlobal?.OverlayScrollbars !== undefined) {
         OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, {
-          scrollbars: {
-            theme: Default.scrollbarTheme,
-            autoHide: Default.scrollbarAutoHide,
-            clickScroll: Default.scrollbarClickScroll,
-          },
+          scrollbars: { theme: Default.scrollbarTheme, autoHide: Default.scrollbarAutoHide, clickScroll: Default.scrollbarClickScroll },
         });
       }
     });
   </script>
-  <!--end::Scripts-->
 
 </body>
-<!--end::Body-->
 </html>
