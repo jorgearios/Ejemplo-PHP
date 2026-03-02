@@ -1,391 +1,352 @@
 <?php
 require_once 'config.php';
 
-function redirigirProfesores($mensaje)
+// CRUD de alumnos:
+// - Crea y actualiza por POST
+// - Elimina y carga datos a editar por GET
+// - Muestra formulario + listado final
+function redirigir($mensaje)
 {
-  header('Location: profesores.php?msg=' . urlencode($mensaje));
-  exit;
+    header('Location: alumnos.php?msg=' . urlencode($mensaje));
+    exit;
 }
 
+// 1) Guardar (alta/edicion) de alumno
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $no_empleado = trim($_POST['no_empleado'] ?? '');
-  $noEmpleadoOrig = trim($_POST['no_empleado_original'] ?? '');
-  $nombre = trim($_POST['nombre'] ?? '');
-  $email = trim($_POST['email'] ?? '');
-  $telefono = trim($_POST['telefono'] ?? '');
-  $id_especialidad = isset($_POST['id_especialidad']) ? (int)$_POST['id_especialidad'] : 0;
+    $matriculaOriginal = trim($_POST['matricula_original'] ?? '');
+    $matricula = trim($_POST['matricula'] ?? '');
+    $nombre = trim($_POST['nombre'] ?? '');
+    $id_carrera = isset($_POST['id_carrera']) ? (int)$_POST['id_carrera'] : 0;
+    $email = trim($_POST['email'] ?? '');
+    $promedio_general = isset($_POST['promedio_general']) ? (float)$_POST['promedio_general'] : -1;
 
-  if ($no_empleado === '' || $nombre === '' || $email === '' || $telefono === '' || $id_especialidad <= 0) {
-    redirigirProfesores('Todos los campos son obligatorios.');
-  }
+    if ($matricula === '' || $nombre === '' || $id_carrera <= 0 || $email === '' || $promedio_general < 0 || $promedio_general > 10) {
+        redirigir('Datos invalidos. Verifica los campos.');
+    }
 
-  if ($noEmpleadoOrig !== '') {
-    $stmt = $conexion->prepare('UPDATE profesores SET no_empleado = ?, nombre = ?, email = ?, telefono = ?, id_especialidad = ? WHERE no_empleado = ?');
-    $stmt->bind_param('ssssiss', $no_empleado, $nombre, $email, $telefono, $id_especialidad, $noEmpleadoOrig);
-    $ok = $stmt->execute();
-    $stmt->close();
-    redirigirProfesores($ok ? 'Profesor actualizado.' : 'No se pudo actualizar el profesor.');
-  }
-  else {
-    $stmt = $conexion->prepare('INSERT INTO profesores (no_empleado, nombre, email, telefono, id_especialidad) VALUES (?, ?, ?, ?, ?)');
-    $stmt->bind_param('ssssi', $no_empleado, $nombre, $email, $telefono, $id_especialidad);
-    $ok = $stmt->execute();
-    $stmt->close();
-    redirigirProfesores($ok ? 'Profesor agregado.' : 'No se pudo agregar el profesor. Verifica que el No. de empleado sea único.');
-  }
+    // Si existe matricula original, se trata de una edicion.
+    if ($matriculaOriginal !== '') {
+        $stmt = $conexion->prepare('UPDATE alumnos SET matricula = ?, nombre = ?, id_carrera = ?, email = ?, promedio_general = ? WHERE matricula = ?');
+        $stmt->bind_param('ssisss', $matricula, $nombre, $id_carrera, $email, $promedio_general, $matriculaOriginal);
+        $ok = $stmt->execute();
+        $stmt->close();
+        redirigir($ok ? 'Alumno actualizado.' : 'No se pudo actualizar el alumno.');
+    } else {
+        // Alta de nuevo alumno.
+        $stmt = $conexion->prepare('INSERT INTO alumnos (matricula, id_carrera, nombre, email, promedio_general) VALUES (?, ?, ?, ?, ?)');
+        $stmt->bind_param('sissd', $matricula, $id_carrera, $nombre, $email, $promedio_general);
+        $ok = $stmt->execute();
+        $stmt->close();
+        redirigir($ok ? 'Alumno agregado.' : 'No se pudo agregar el alumno. Revisa matricula unica y carrera valida.');
+    }
 }
 
-if (isset($_GET['accion']) && $_GET['accion'] === 'eliminar' && isset($_GET['no_empleado'])) {
-  $no_empleado = trim($_GET['no_empleado']);
-  if ($no_empleado !== '') {
-    $stmt = $conexion->prepare('DELETE FROM profesores WHERE no_empleado = ?');
-    $stmt->bind_param('s', $no_empleado);
-    $ok = $stmt->execute();
-    $stmt->close();
-    redirigirProfesores($ok ? 'Profesor eliminado.' : 'No se pudo eliminar el profesor.');
-  }
+// 2) Eliminar alumno por matricula
+if (isset($_GET['accion']) && $_GET['accion'] === 'eliminar' && isset($_GET['matricula'])) {
+    $matricula = trim($_GET['matricula']);
+    if ($matricula !== '') {
+        $stmt = $conexion->prepare('DELETE FROM alumnos WHERE matricula = ?');
+        $stmt->bind_param('s', $matricula);
+        $ok = $stmt->execute();
+        $stmt->close();
+        redirigir($ok ? 'Alumno eliminado.' : 'No se pudo eliminar el alumno.');
+    }
 }
 
-$especialidades = $conexion->query('SELECT id_especialidad, nombre FROM especialidades ORDER BY nombre ASC');
+// Datos de apoyo para el select de carreras en el formulario
+$carreras = $conexion->query('SELECT id_carrera, nombre FROM carreras ORDER BY nombre ASC');
 
-$profesorEditar = [
-  'no_empleado_original' => '',
-  'no_empleado' => '',
-  'nombre' => '',
-  'email' => '',
-  'telefono' => '',
-  'id_especialidad' => 0,
+// Estructura por defecto del formulario (modo agregar)
+$alumnoEditar = [
+    'matricula_original' => '',
+'matricula' => '',
+'nombre' => '',
+'id_carrera' => 0,
+'email' => '',
+'promedio_general' => ''
 ];
 
-if (isset($_GET['accion']) && $_GET['accion'] === 'editar' && isset($_GET['no_empleado'])) {
-  $no_empleado = trim($_GET['no_empleado']);
-  if ($no_empleado !== '') {
-    $stmt = $conexion->prepare('SELECT no_empleado, nombre, email, telefono, id_especialidad FROM profesores WHERE no_empleado = ?');
-    $stmt->bind_param('s', $no_empleado);
-    $stmt->execute();
-    $resultado = $stmt->get_result();
-    if ($fila = $resultado->fetch_assoc()) {
-      $fila['no_empleado_original'] = $fila['no_empleado'];
-      $profesorEditar = $fila;
+// 3) Cargar alumno en modo edicion
+if (isset($_GET['accion']) && $_GET['accion'] === 'editar' && isset($_GET['matricula'])) {
+    $matricula = trim($_GET['matricula']);
+    if ($matricula !== '') {
+        $stmt = $conexion->prepare('SELECT matricula, id_carrera, nombre, email, promedio_general FROM alumnos WHERE matricula = ?');
+        $stmt->bind_param('s', $matricula);
+        $stmt->execute();
+        $resultado = $stmt->get_result();
+        if ($fila = $resultado->fetch_assoc()) {
+            $fila['matricula_original'] = $fila['matricula'];
+            $alumnoEditar = $fila;
+        }
+        $stmt->close();
     }
-    $stmt->close();
-  }
 }
 
-$listado = $conexion->query('SELECT p.no_empleado, p.nombre, p.email, p.telefono, e.nombre AS especialidad
-  FROM profesores p
-  INNER JOIN especialidades e ON e.id_especialidad = p.id_especialidad
-  ORDER BY p.no_empleado DESC');
+// 4) Listado principal de alumnos con nombre de carrera
+$listado = $conexion->query('SELECT a.matricula, a.nombre, c.nombre AS carrera, a.email, a.promedio_general
+FROM alumnos a
+INNER JOIN carreras c ON c.id_carrera = a.id_carrera
+ORDER BY a.matricula DESC');
 ?>
+
+
+
+
+
+
 <!doctype html>
 <html lang="es">
-<!--begin::Head-->
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <title>CRUD Profesores | AdminLTE 4</title>
-  <!--begin::Accessibility Meta Tags-->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
-  <!--end::Accessibility Meta Tags-->
-  <meta name="supported-color-schemes" content="light dark" />
-  <link rel="preload" href="css/adminlte.css" as="style" />
-  <!--begin::Fonts-->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css"
-    integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q="
-    crossorigin="anonymous"
-    media="print"
-    onload="this.media='all'"
-  />
-  <!--end::Fonts-->
-  <!--begin::Third Party Plugin(OverlayScrollbars)-->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css"
-    crossorigin="anonymous"
-  />
-  <!--end::Third Party Plugin(OverlayScrollbars)-->
-  <!--begin::Third Party Plugin(Bootstrap Icons)-->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
-    crossorigin="anonymous"
-  />
-  <!--end::Third Party Plugin(Bootstrap Icons)-->
-  <!--begin::Required Plugin(AdminLTE)-->
-  <link rel="stylesheet" href="css/adminlte.css" />
-  <!--end::Required Plugin(AdminLTE)-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRUD Alumnos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+<!--end::Accessibility Meta Tags-->
+<!--begin::Primary Meta Tags-->
+<meta name="title" content="AdminLTE 4 | General Form Elements" />
+<meta name="author" content="ColorlibHQ" />
+<meta
+name="description"
+content="AdminLTE is a Free Bootstrap 5 Admin Dashboard, 30 example pages using Vanilla JS. Fully accessible with WCAG 2.1 AA compliance."
+/>
+<meta
+name="keywords"
+content="bootstrap 5, bootstrap, bootstrap 5 admin dashboard, bootstrap 5 dashboard, bootstrap 5 charts, bootstrap 5 calendar, bootstrap 5 datepicker, bootstrap 5 tables, bootstrap 5 datatable, vanilla js datatable, colorlibhq, colorlibhq dashboard, colorlibhq admin dashboard, accessible admin panel, WCAG compliant"
+/>
+<!--end::Primary Meta Tags-->
+<!--begin::Accessibility Features-->
+<!-- Skip links will be dynamically added by accessibility.js -->
+<meta name="supported-color-schemes" content="light dark" />
+<link rel="preload" href="css/adminlte.css" as="style" />
+<!--end::Accessibility Features-->
+<!--begin::Fonts-->
+<link
+rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css"
+integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q="
+crossorigin="anonymous"
+media="print"
+onload="this.media='all'"
+/>
+<!--end::Fonts-->
+<!--begin::Third Party Plugin(OverlayScrollbars)-->
+<link
+rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css"
+crossorigin="anonymous"
+/>
+<!--end::Third Party Plugin(OverlayScrollbars)-->
+<!--begin::Third Party Plugin(Bootstrap Icons)-->
+<link
+rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+crossorigin="anonymous"
+/>
+<!--end::Third Party Plugin(Bootstrap Icons)-->
+<!--begin::Required Plugin(AdminLTE)-->
+<link rel="stylesheet" href="css/adminlte.css" />
+<!--end::Required Plugin(AdminLTE)-->
 </head>
-<!--end::Head-->
-<!--begin::Body-->
 <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
-  <!--begin::App Wrapper-->
-  <div class="app-wrapper">
+<div class="app-wrapper">
+<nav class="app-header navbar navbar-expand bg-body">
+<!--begin::Container-->
+<div class="container-fluid">
+<!--begin::Start Navbar Links-->
+<!--end::Start Navbar Links-->
+<!--begin::End Navbar Links-->
+<ul class="navbar-nav ms-auto">
+<!--begin::Navbar Search-->
 
-    <!--begin::Header-->
-    <nav class="app-header navbar navbar-expand bg-body">
-      <div class="container-fluid">
-        <!--begin::Start Navbar Links-->
-        <ul class="navbar-nav">
-          <li class="nav-item">
-            <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
-              <i class="bi bi-list"></i>
-            </a>
-          </li>
-        </ul>
-        <!--end::Start Navbar Links-->
-      </div>
-    </nav>
-    <!--end::Header-->
+<!--end::Navbar Search-->
+<!--begin::Messages Dropdown Menu-->
+<li class="nav-item dropdown">
+<div class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
 
-    <!--begin::Sidebar-->
-    <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
-      <!--begin::Sidebar Brand-->
-      <div class="sidebar-brand">
-        <a href="../index.html" class="brand-link">
-          <img
-            src="../assets/img/AdminLTELogo.png"
-            alt="AdminLTE Logo"
-            class="brand-image opacity-75 shadow"
-          />
-          <span class="brand-text fw-light">AdminLTE 4</span>
-        </a>
-      </div>
-      <!--end::Sidebar Brand-->
-      <!--begin::Sidebar Wrapper-->
-      <div class="sidebar-wrapper">
-        <nav class="mt-2">
-          <ul
-            class="nav sidebar-menu flex-column"
-            data-lte-toggle="treeview"
-            role="navigation"
-            aria-label="Main navigation"
-            data-accordion="false"
-          >
-            <li class="nav-item">
-              <a href="carreras.php" class="nav-link">
-                <i class="nav-icon bi bi-mortarboard-fill"></i>
-                <p>Carreras</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="alumnos.php" class="nav-link">
-                <i class="nav-icon bi bi-people-fill"></i>
-                <p>Alumnos</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="especialidades.php" class="nav-link">
-                <i class="nav-icon bi bi-bookmark-star-fill"></i>
-                <p>Especialidades</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="profesores.php" class="nav-link active">
-                <i class="nav-icon bi bi-person-workspace"></i>
-                <p>Profesores</p>
-              </a>
-            </li>
-          </ul>
-        </nav>
-      </div>
-      <!--end::Sidebar Wrapper-->
-    </aside>
-    <!--end::Sidebar-->
+</li>
+<!--end::Notifications Dropdown Menu-->
+<!--begin::Fullscreen Toggle-->
 
-    <!--begin::App Main-->
-    <main class="app-main">
+</li>
+<!--end::Fullscreen Toggle-->
+<!--begin::User Menu Dropdown-->
 
-      <!--begin::App Content Header-->
-      <div class="app-content-header">
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-sm-6">
-              <h3 class="mb-0">CRUD de Profesores</h3>
-            </div>
-            <div class="col-sm-6">
-              <ol class="breadcrumb float-sm-end">
-                <li class="breadcrumb-item"><a href="#">Home</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Profesores</li>
-              </ol>
-            </div>
-          </div>
+</ul>
+</div>
+</nav>
+  <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
+        <!--begin::Sidebar Brand-->
+        <div class="sidebar-brand">
+          <!--begin::Brand Link-->
+          <a href="index.html" class="brand-link">
+            <!--begin::Brand Image-->
+           
+            <!--end::Brand Image-->
+            <!--begin::Brand Text-->
+            <span class="brand-text fw-light">Ejemplo</span>
+            <!--end::Brand Text-->
+          </a>
+          <!--end::Brand Link-->
         </div>
-      </div>
-      <!--end::App Content Header-->
-
-      <!--begin::App Content-->
-      <div class="app-content">
-        <div class="container-fluid">
-          <div class="row g-4">
-
-            <!--begin::Col Formulario-->
-            <div class="col-8">
-              <div class="card card-primary card-outline mb-4">
-                <div class="card-header">
-                  <div class="card-title">
-                    <?php echo $profesorEditar['no_empleado_original'] !== '' ? 'Editar Profesor' : 'Agregar Profesor'; ?>
-                  </div>
-                </div>
-                <form method="post" action="profesores.php">
-                  <div class="card-body">
-
-                    <?php if (isset($_GET['msg'])): ?>
-                      <div class="alert alert-info">
-                        <?php echo htmlspecialchars($_GET['msg']); ?>
-                      </div>
-                    <?php
-endif; ?>
-
-                    <input type="hidden" name="no_empleado_original" value="<?php echo htmlspecialchars((string)$profesorEditar['no_empleado_original']); ?>">
-
-                    <div class="mb-3">
-                      <label class="form-label">No. de Empleado</label>
-                      <input type="text" class="form-control" name="no_empleado" required
-                        value="<?php echo htmlspecialchars((string)$profesorEditar['no_empleado']); ?>">
-                    </div>
-
-                    <div class="mb-3">
-                      <label class="form-label">Nombre</label>
-                      <input type="text" class="form-control" name="nombre" required
-                        value="<?php echo htmlspecialchars((string)$profesorEditar['nombre']); ?>">
-                    </div>
-
-                    <div class="mb-3">
-                      <label class="form-label">Email</label>
-                      <input type="email" class="form-control" name="email" required
-                        value="<?php echo htmlspecialchars((string)$profesorEditar['email']); ?>">
-                    </div>
-
-                    <div class="mb-3">
-                      <label class="form-label">Teléfono</label>
-                      <input type="text" class="form-control" name="telefono" required
-                        value="<?php echo htmlspecialchars((string)$profesorEditar['telefono']); ?>">
-                    </div>
-
-                    <div class="mb-3">
-                      <label class="form-label">Especialidad</label>
-                      <select class="form-select" name="id_especialidad" required>
-                        <option value="">Selecciona una especialidad</option>
-                        <?php while ($e = $especialidades->fetch_assoc()): ?>
-                          <option value="<?php echo (int)$e['id_especialidad']; ?>"
-                            <?php echo((int)$profesorEditar['id_especialidad'] === (int)$e['id_especialidad']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($e['nombre']); ?>
-                          </option>
-                        <?php
-endwhile; ?>
-                      </select>
-                    </div>
-
-                  </div>
-                  <div class="card-footer">
-                    <button class="btn btn-primary" type="submit">
-                      <?php echo $profesorEditar['no_empleado_original'] !== '' ? 'Guardar Cambios' : 'Agregar'; ?>
-                    </button>
-                    <?php if ($profesorEditar['no_empleado_original'] !== ''): ?>
-                      <a href="profesores.php" class="btn btn-secondary ms-2">Cancelar</a>
-                    <?php
-endif; ?>
-                  </div>
-                </form>
+        <!--end::Sidebar Brand-->
+        <!--begin::Sidebar Wrapper-->
+        <div class="sidebar-wrapper">
+          <nav class="mt-2">
+            <!--begin::Sidebar Menu-->
+            <ul
+              class="nav sidebar-menu flex-column"
+              data-lte-toggle="treeview"
+              role="navigation"
+              aria-label="Main navigation"
+              data-accordion="false"
+              id="navigation"
+            >
+            <li class="nav-item">
+                <a href="carreras.php" class="nav-link">
+                  <i class="nav-icon"></i>
+                  <p>Ir a CRUD Carreras</p>
+                </a>
+                 </li>
+              <li class="nav-item">
+                <a href="alumnos.php" class="nav-link">
+                  <i class="nav-icon"></i>
+                  <p>Ir a CRUD Alumnos</p>
+                </a>
+                 </li>
+                  <li class="nav-item">
+                <a href="especialidades.php" class="nav-link">
+                  <i class="nav-icon"></i>
+                  <p>Ir a CRUD Especialidades</p>
+                </a>
+</li>
+ <li class="nav-item">
+                <a href="profesores.php" class="nav-link">
+                  <i class="nav-icon"></i>
+                  <p>Ir a CRUD Profesores</p>
+                </a>
+</li>
+              
+            </ul>
+            <!--end::Sidebar Menu-->
+          </nav>
+        </div>
+        <!--end::Sidebar Wrapper-->
+      </aside>
+      <main class="app-main">
+        <!--begin::App Content Header-->
+        <div class="app-content-header">
+          <!--begin::Container-->
+          <div class="container-fluid">
+            <!--begin::Row-->
+            <div class="row">
+              <div class="col-sm-6"><h3 class="mb-0">CRUD de alumnos</h3></div>
+              <div class="col-sm-6">
+               
               </div>
             </div>
-            <!--end::Col Formulario-->
-
-            <!--begin::Col Listado-->
-            <div class="col-8">
-              <div class="card card-outline mb-4">
-                <div class="card-header">
-                  <div class="card-title">Listado de Profesores</div>
-                </div>
-                <div class="card-body">
-                  <table class="table table-striped">
-                    <thead>
-                      <tr>
-                        <th>No. Empleado</th>
-                        <th>Nombre</th>
-                        <th>Email</th>
-                        <th>Teléfono</th>
-                        <th>Especialidad</th>
-                        <th>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <?php while ($p = $listado->fetch_assoc()): ?>
-                        <tr>
-                          <td><?php echo htmlspecialchars($p['no_empleado']); ?></td>
-                          <td><?php echo htmlspecialchars($p['nombre']); ?></td>
-                          <td><?php echo htmlspecialchars($p['email']); ?></td>
-                          <td><?php echo htmlspecialchars($p['telefono']); ?></td>
-                          <td><?php echo htmlspecialchars($p['especialidad']); ?></td>
-                          <td>
-                            <a href="profesores.php?accion=editar&no_empleado=<?php echo urlencode($p['no_empleado']); ?>" class="btn btn-sm btn-warning">
-                              <i class="bi bi-pencil-fill"></i> Editar
-                            </a>
-                            <a href="profesores.php?accion=eliminar&no_empleado=<?php echo urlencode($p['no_empleado']); ?>"
-                               class="btn btn-sm btn-danger ms-1"
-                               onclick="return confirm('¿Eliminar profesor?');">
-                              <i class="bi bi-trash-fill"></i> Eliminar
-                            </a>
-                          </td>
-                        </tr>
-                      <?php
-endwhile; ?>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            <!--end::Col Listado-->
-
+            <!--end::Row-->
           </div>
+          <!--end::Container-->
         </div>
-      </div>
-      <!--end::App Content-->
+        <!--end::App Content Header-->
+        <!--begin::App Content-->
+        <div class="app-content">
+          <!--begin::Container-->
+          <div class="container-fluid">
+            <!--begin::Row-->
+            <div class="row g-4">
+              <div class="col-md-6">
+                <!--begin::Quick Example-->
+                <div class="card card-primary card-outline mb-4">
+                  <!--end::Header-->
+                  <!--begin::Form-->
+                  <form method="post" action="alumnos.php">
+                    <div class="card-header"><div class="card-title"><?php echo $alumnoEditar['matricula_original'] !== '' ? 'Editar Alumno' : 'Agregar Alumno'; ?></div></div>
 
-    </main>
-    <!--end::App Main-->
+    <input type="hidden" name="matricula_original" value="<?php echo htmlspecialchars((string)$alumnoEditar['matricula_original']); ?>">
+<div class="card-body">
+   
+    <label>Matricula</label>
+    <input type="text" class="form-control" name="matricula" required value="<?php echo htmlspecialchars((string)$alumnoEditar['matricula']); ?>">
 
-    <!--begin::Footer-->
-    <footer class="app-footer">
-      <strong>Copyright &copy; 2014-2025&nbsp;<a href="https://adminlte.io" class="text-decoration-none">AdminLTE.io</a>.</strong>
-      All rights reserved.
-    </footer>
-    <!--end::Footer-->
+</div>
+<div class="card-body">
+    <label>Nombre</label>
+    <input type="text" class="form-control" name="nombre" required value="<?php echo htmlspecialchars((string)$alumnoEditar['nombre']); ?>">
+</div>
+<div class="card-body">
+    <label>Carrera</label>
+    <select  class="form-select" name="id_carrera" required>
+    <option value="">Selecciona una carrera</option>
+    <?php while ($c = $carreras->fetch_assoc()): ?>
+    <option value="<?php echo (int)$c['id_carrera']; ?>" <?php echo ((int)$alumnoEditar['id_carrera'] === (int)$c['id_carrera']) ? 'selected' : ''; ?>>
+    <?php echo htmlspecialchars($c['nombre']); ?>
+    </option>
+    <?php endwhile; ?>
+    </select>
+    </div>
+    <div class="card-body">
+    <label >Correo electronico</label>
+    <input type="email" class="form-control" name="email" required value="<?php echo htmlspecialchars((string)$alumnoEditar['email']); ?>">
+    </div>
+    <div class="card-body">
+    <label>Promedio general (0 - 10)</label>
+    <input type="number" class="form-control" step="0.01" min="0" max="10" name="promedio_general" required value="<?php echo htmlspecialchars((string)$alumnoEditar['promedio_general']); ?>">
+    </div>
+     <div class="card-footer">
+    <button type="submit" class="btn btn-primary"><?php echo $alumnoEditar['matricula_original'] !== '' ? 'Guardar Cambios' : 'Agregar'; ?></button>
+    </div>
+    <?php if ($alumnoEditar['matricula_original'] !== ''): ?>
+    <a class="btn btn-danger" href="alumnos.php">Cancelar</a>
+    <?php endif; ?>
+</form>
+                  <!--end::Form-->
+                </div>
+                <!--end::Quick Example-->
+             
+      </main>
+<div class="app-content">
 
-  </div>
-  <!--end::App Wrapper-->
-
-  <!--begin::Scripts-->
-  <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es6.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
-  <script src="js/adminlte.js"></script>
-  <script>
-    const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
-    const Default = {
-      scrollbarTheme: 'os-theme-light',
-      scrollbarAutoHide: 'leave',
-      scrollbarClickScroll: true,
-    };
-    document.addEventListener('DOMContentLoaded', function () {
-      const sidebarWrapper = document.querySelector(SELECTOR_SIDEBAR_WRAPPER);
-      if (sidebarWrapper && OverlayScrollbarsGlobal?.OverlayScrollbars !== undefined) {
-        OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, {
-          scrollbars: {
-            theme: Default.scrollbarTheme,
-            autoHide: Default.scrollbarAutoHide,
-            clickScroll: Default.scrollbarClickScroll,
-          },
-        });
-      }
-    });
-  </script>
-  <!--end::Scripts-->
-
+ <div class="container-fluid">
+            <!--begin::Row-->
+            <div class="row">
+                <div class="card mb-2">
+        <h2>Listado de Alumnos Registrados</h2>
+        <table class="table table-bordered">
+        <thead>
+        <tr>
+        <th>Matricula</th>
+        <th>Nombre</th>
+        <th>Carrera</th>
+        <th>Email</th>
+        <th>Promedio</th>
+        <th>Acciones</th>
+        </tr>
+        </thead>
+        <tbody>
+        <?php while ($a = $listado->fetch_assoc()): ?>
+        <tr>
+        <td><?php echo htmlspecialchars($a['matricula']); ?></td>
+        <td><?php echo htmlspecialchars($a['nombre']); ?></td>
+        <td><?php echo htmlspecialchars($a['carrera']); ?></td>
+        <td><?php echo htmlspecialchars($a['email']); ?></td>
+        <td><?php echo htmlspecialchars((string)$a['promedio_general']); ?></td>
+        <td class="acciones">
+        <a class="btn btn-primary" href="alumnos.php?accion=editar&matricula=<?php echo urlencode($a['matricula']); ?>">Editar</a>
+        <a class="btn btn-danger" href="alumnos.php?accion=eliminar&matricula=<?php echo urlencode($a['matricula']); ?>" onclick="return confirm('Eliminar alumno?');">Eliminar</a>
+        </td>
+        </tr>
+        <?php endwhile; ?>
+        </tbody>
+        </table>
+    </div>
+        </div>
+        
+</div>
+</div>
+</div>
 </body>
-<!--end::Body-->
 </html>

@@ -1,339 +1,303 @@
-﻿<?php
+<?php
 require_once 'config.php';
 
-function redirigirEspecialidades($mensaje)
+// CRUD de carreras:
+// - Crea y actualiza por POST
+// - Elimina y carga datos a editar por GET
+// - Muestra formulario + listado final
+function redirigirCarreras($mensaje)
 {
-  header('Location: especialidades.php?msg=' . urlencode($mensaje));
+  header('Location: carreras.php?msg=' . urlencode($mensaje));
   exit;
 }
 
+// 1) Guardar (alta/edicion) de carrera
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $id_especialidad = isset($_POST['id_especialidad']) ? (int)$_POST['id_especialidad'] : 0;
+  $id_carrera = isset($_POST['id_carrera']) ? (int)$_POST['id_carrera'] : 0;
   $nombre = trim($_POST['nombre'] ?? '');
 
   if ($nombre === '') {
-    redirigirEspecialidades('El nombre de la especialidad es obligatorio.');
+    redirigirCarreras('El nombre de la carrera es obligatorio.');
   }
 
-  if ($id_especialidad > 0) {
-    $stmt = $conexion->prepare('UPDATE especialidades SET nombre = ? WHERE id_especialidad = ?');
-    $stmt->bind_param('si', $nombre, $id_especialidad);
+  // Si llega id_carrera, actualiza; en caso contrario, inserta.
+  if ($id_carrera > 0) {
+    $stmt = $conexion->prepare('UPDATE carreras SET nombre = ? WHERE id_carrera = ?');
+    $stmt->bind_param('si', $nombre, $id_carrera);
     $ok = $stmt->execute();
     $stmt->close();
-    redirigirEspecialidades($ok ? 'Especialidad actualizada.' : 'No se pudo actualizar la especialidad.');
+    redirigirCarreras($ok ? 'Carrera actualizada.' : 'No se pudo actualizar la carrera.');
   }
   else {
-    $stmt = $conexion->prepare('INSERT INTO especialidades (nombre) VALUES (?)');
+    $stmt = $conexion->prepare('INSERT INTO carreras (nombre) VALUES (?)');
     $stmt->bind_param('s', $nombre);
     $ok = $stmt->execute();
     $stmt->close();
-    redirigirEspecialidades($ok ? 'Especialidad agregada.' : 'No se pudo agregar la especialidad (nombre duplicado).');
+    redirigirCarreras($ok ? 'Carrera agregada.' : 'No se pudo agregar la carrera (nombre duplicado).');
   }
 }
 
-if (isset($_GET['accion']) && $_GET['accion'] === 'eliminar' && isset($_GET['id_especialidad'])) {
-  $id_especialidad = (int)$_GET['id_especialidad'];
-  if ($id_especialidad > 0) {
-    $stmt = $conexion->prepare('DELETE FROM especialidades WHERE id_especialidad = ?');
-    $stmt->bind_param('i', $id_especialidad);
+// 2) Eliminar carrera
+if (isset($_GET['accion']) && $_GET['accion'] === 'eliminar' && isset($_GET['id_carrera'])) {
+  $id_carrera = (int)$_GET['id_carrera'];
+  if ($id_carrera > 0) {
+    $stmt = $conexion->prepare('DELETE FROM carreras WHERE id_carrera = ?');
+    $stmt->bind_param('i', $id_carrera);
     $ok = $stmt->execute();
     $stmt->close();
-    redirigirEspecialidades($ok ? 'Especialidad eliminada.' : 'No se pudo eliminar la especialidad. Si tiene profesores relacionados, eliminarlos o reasignarlos primero.');
+    redirigirCarreras($ok ? 'Carrera eliminada.' : 'No se pudo eliminar la carrera. Si tiene alumnos relacionados, eliminarlos o reasignarlos primero.');
   }
 }
 
-$especialidadEditar = ['id_especialidad' => 0, 'nombre' => ''];
+// Estructura por defecto del formulario (modo agregar)
+$carreraEditar = [
+  'id_carrera' => 0,  'nombre' => ''
+];
 
-if (isset($_GET['accion']) && $_GET['accion'] === 'editar' && isset($_GET['id_especialidad'])) {
-  $id_especialidad = (int)$_GET['id_especialidad'];
-  $stmt = $conexion->prepare('SELECT id_especialidad, nombre FROM especialidades WHERE id_especialidad = ?');
-  $stmt->bind_param('i', $id_especialidad);
+// 3) Cargar carrera en modo edicion
+if (isset($_GET['accion']) && $_GET['accion'] === 'editar' && isset($_GET['id_carrera'])) {
+  $id_carrera = (int)$_GET['id_carrera'];
+  $stmt = $conexion->prepare('SELECT id_carrera, nombre FROM carreras WHERE id_carrera = ?');
+  $stmt->bind_param('i', $id_carrera);
   $stmt->execute();
   $resultado = $stmt->get_result();
   if ($fila = $resultado->fetch_assoc()) {
-    $especialidadEditar = $fila;
+    $carreraEditar = $fila;
   }
   $stmt->close();
 }
 
-$listado = $conexion->query('SELECT id_especialidad, nombre FROM especialidades ORDER BY id_especialidad DESC');
+// 4) Listado principal de carreras
+$listado = $conexion->query('SELECT id_carrera, nombre FROM carreras ORDER BY id_carrera DESC');
 ?>
 <!doctype html>
 <html lang="es">
-<!--begin::Head-->
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <title>CRUD Especialidades | AdminLTE 4</title>
-  <!--begin::Accessibility Meta Tags-->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
-  <!--end::Accessibility Meta Tags-->
-  <meta name="supported-color-schemes" content="light dark" />
-  <link rel="preload" href="css/adminlte.css" as="style" />
-  <!--begin::Fonts-->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css"
-    integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q="
-    crossorigin="anonymous"
-    media="print"
-    onload="this.media='all'"
-  />
-  <!--end::Fonts-->
-  <!--begin::Third Party Plugin(OverlayScrollbars)-->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css"
-    crossorigin="anonymous"
-  />
-  <!--end::Third Party Plugin(OverlayScrollbars)-->
-  <!--begin::Third Party Plugin(Bootstrap Icons)-->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
-    crossorigin="anonymous"
-  />
-  <!--end::Third Party Plugin(Bootstrap Icons)-->
-  <!--begin::Required Plugin(AdminLTE)-->
-  <link rel="stylesheet" href="css/adminlte.css" />
-  <!--end::Required Plugin(AdminLTE)-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRUD Carreras</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+<!--end::Accessibility Meta Tags-->
+<!--begin::Primary Meta Tags-->
+<meta name="title" content="AdminLTE 4 | General Form Elements" />
+<meta name="author" content="ColorlibHQ" />
+<meta
+name="description"
+content="AdminLTE is a Free Bootstrap 5 Admin Dashboard, 30 example pages using Vanilla JS. Fully accessible with WCAG 2.1 AA compliance."
+/>
+<meta
+name="keywords"
+content="bootstrap 5, bootstrap, bootstrap 5 admin dashboard, bootstrap 5 dashboard, bootstrap 5 charts, bootstrap 5 calendar, bootstrap 5 datepicker, bootstrap 5 tables, bootstrap 5 datatable, vanilla js datatable, colorlibhq, colorlibhq dashboard, colorlibhq admin dashboard, accessible admin panel, WCAG compliant"
+/>
+<!--end::Primary Meta Tags-->
+<!--begin::Accessibility Features-->
+<!-- Skip links will be dynamically added by accessibility.js -->
+<meta name="supported-color-schemes" content="light dark" />
+<link rel="preload" href="css/adminlte.css" as="style" />
+<!--end::Accessibility Features-->
+<!--begin::Fonts-->
+<link
+rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css"
+integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q="
+crossorigin="anonymous"
+media="print"
+onload="this.media='all'"
+/>
+<!--end::Fonts-->
+<!--begin::Third Party Plugin(OverlayScrollbars)-->
+<link
+rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css"
+crossorigin="anonymous"
+/>
+<!--end::Third Party Plugin(OverlayScrollbars)-->
+<!--begin::Third Party Plugin(Bootstrap Icons)-->
+<link
+rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+crossorigin="anonymous"
+/>
+<!--end::Third Party Plugin(Bootstrap Icons)-->
+<!--begin::Required Plugin(AdminLTE)-->
+<link rel="stylesheet" href="css/adminlte.css" />
+<!--end::Required Plugin(AdminLTE)-->
 </head>
-<!--end::Head-->
-<!--begin::Body-->
 <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
-  <!--begin::App Wrapper-->
-  <div class="app-wrapper">
+<div class="app-wrapper">
+<nav class="app-header navbar navbar-expand bg-body">
+<!--begin::Container-->
+<div class="container-fluid">
+<!--begin::Start Navbar Links-->
+<!--end::Start Navbar Links-->
+<!--begin::End Navbar Links-->
+<ul class="navbar-nav ms-auto">
+<!--begin::Navbar Search-->
 
-    <!--begin::Header-->
-    <nav class="app-header navbar navbar-expand bg-body">
-      <div class="container-fluid">
-        <!--begin::Start Navbar Links-->
-        <ul class="navbar-nav">
-          <li class="nav-item">
-            <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
-              <i class="bi bi-list"></i>
-            </a>
-          </li>
-        </ul>
-        <!--end::Start Navbar Links-->
-      </div>
-    </nav>
-    <!--end::Header-->
+<!--end::Navbar Search-->
+<!--begin::Messages Dropdown Menu-->
+<li class="nav-item dropdown">
+<div class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
 
-    <!--begin::Sidebar-->
-    <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
-      <!--begin::Sidebar Brand-->
-      <div class="sidebar-brand">
-        <a href="../index.html" class="brand-link">
-          <img
-            src="../assets/img/AdminLTELogo.png"
-            alt="AdminLTE Logo"
-            class="brand-image opacity-75 shadow"
-          />
-          <span class="brand-text fw-light">AdminLTE 4</span>
-        </a>
-      </div>
-      <!--end::Sidebar Brand-->
-      <!--begin::Sidebar Wrapper-->
-      <div class="sidebar-wrapper">
-        <nav class="mt-2">
-          <ul
-            class="nav sidebar-menu flex-column"
-            data-lte-toggle="treeview"
-            role="navigation"
-            aria-label="Main navigation"
-            data-accordion="false"
-          >
-            <li class="nav-item">
-              <a href="especialidades.php" class="nav-link">
-                <i class="nav-icon bi bi-mortarboard-fill"></i>
-                <p>Especialidades</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="profesores.php" class="nav-link">
-                <i class="nav-icon bi bi-people-fill"></i>
-                <p>Profesores</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="carreras.php" class="nav-link active">
-                <i class="nav-icon bi bi-bookmark-star-fill"></i>
-                <p>Carreras</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="alumnos.php" class="nav-link">
-                <i class="nav-icon bi bi-person-workspace"></i>
-                <p>Alumnos</p>
-              </a>
-            </li>
-          </ul>
-        </nav>
-      </div>
-      <!--end::Sidebar Wrapper-->
-    </aside>
-    <!--end::Sidebar-->
+</li>
+<!--end::Notifications Dropdown Menu-->
+<!--begin::Fullscreen Toggle-->
 
-    <!--begin::App Main-->
-    <main class="app-main">
+</li>
+<!--end::Fullscreen Toggle-->
+<!--begin::User Menu Dropdown-->
 
-      <!--begin::App Content Header-->
-      <div class="app-content-header">
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-sm-6">
-              <h3 class="mb-0">CRUD de Especialidades</h3>
-            </div>
-            <div class="col-sm-6">
-              <ol class="breadcrumb float-sm-end">
-                <li class="breadcrumb-item"><a href="#">Home</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Especialidades</li>
-              </ol>
-            </div>
-          </div>
+</ul>
+</div>
+</nav>
+<aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
+        <!--begin::Sidebar Brand-->
+        <div class="sidebar-brand">
+          <!--begin::Brand Link-->
+          <a href="index.html" class="brand-link">
+            <!--begin::Brand Image-->
+           
+            <!--end::Brand Image-->
+            <!--begin::Brand Text-->
+            <span class="brand-text fw-light">Menu</span>
+            <!--end::Brand Text-->
+          </a>
+          <!--end::Brand Link-->
         </div>
-      </div>
-      <!--end::App Content Header-->
-
-      <!--begin::App Content-->
-      <div class="app-content">
-        <div class="container-fluid">
-          <div class="row g-4">
-
-            <!--begin::Col Formulario-->
-            <div class="col-8">
-              <div class="card card-primary card-outline mb-4">
-                <div class="card-header">
-                  <div class="card-title">
-                    <?php echo $especialidadEditar['id_especialidad'] > 0 ? 'Editar Especialidad' : 'Agregar Especialidad'; ?>
-                  </div>
-                </div>
-                <form method="post" action="especialidades.php">
-                  <div class="card-body">
-
-                    <?php if (isset($_GET['msg'])): ?>
-                      <div class="alert alert-info">
-                        <?php echo htmlspecialchars($_GET['msg']); ?>
-                      </div>
-                    <?php
-endif; ?>
-
-                    <input type="hidden" name="id_especialidad" value="<?php echo (int)$especialidadEditar['id_especialidad']; ?>">
-
-                    <div class="mb-3">
-                      <label class="form-label">Nombre de la especialidad</label>
-                      <input
-                        type="text"
-                        class="form-control"
-                        name="nombre"
-                        required
-                        value="<?php echo htmlspecialchars((string)$especialidadEditar['nombre']); ?>"
-                      >
-                    </div>
-
-                  </div>
-                  <div class="card-footer">
-                    <button class="btn btn-primary" type="submit">
-                      <?php echo $especialidadEditar['id_especialidad'] > 0 ? 'Guardar Cambios' : 'Agregar'; ?>
-                    </button>
-                    <?php if ($especialidadEditar['id_especialidad'] > 0): ?>
-                      <a href="especialidades.php" class="btn btn-secondary ms-2">Cancelar</a>
-                    <?php
-endif; ?>
-                  </div>
-                </form>
+        <!--end::Sidebar Brand-->
+        <!--begin::Sidebar Wrapper-->
+       <div class="sidebar-wrapper">
+          <nav class="mt-2">
+            <!--begin::Sidebar Menu-->
+            <ul
+              class="nav sidebar-menu flex-column"
+              data-lte-toggle="treeview"
+              role="navigation"
+              aria-label="Main navigation"
+              data-accordion="false"
+              id="navigation"
+            >
+            <li class="nav-item">
+                <a href="carreras.php" class="nav-link">
+                  <i class="nav-icon"></i>
+                  <p>Carreras</p>
+                </a>
+                 </li>
+              <li class="nav-item">
+                <a href="alumnos.php" class="nav-link">
+                  <i class="nav-icon"></i>
+                  <p>Alumnos</p>
+                </a>
+                 </li>
+                  <li class="nav-item">
+                <a href="especialidades.php" class="nav-link">
+                  <i class="nav-icon"></i>
+                  <p>Especialidades</p>
+                </a>
+</li>
+ <li class="nav-item">
+                <a href="profesores.php" class="nav-link">
+                  <i class="nav-icon"></i>
+                  <p>Profesores</p>
+                </a>
+</li>
+              
+            </ul>
+            <!--end::Sidebar Menu-->
+          </nav>
+        </div>
+        <!--end::Sidebar Wrapper-->
+      </aside>
+      <main class="app-main">
+        <!--begin::App Content Header-->
+        <div class="app-content-header">
+          <!--begin::Container-->
+          <div class="container-fluid">
+            <!--begin::Row-->
+            <div class="row">
+              <div class="col-sm-6"><h3 class="mb-0">Carreras</h3></div>
+              <div class="col-sm-6">
+               
               </div>
             </div>
-            <!--end::Col Formulario-->
+            <!--end::Row-->
+          </div>
+          <!--end::Container-->
+        </div>
+        <!--end::App Content Header-->
+        <!--begin::App Content-->
+        <div class="app-content">
+          <!--begin::Container-->
+          <div class="container-fluid">
+            <!--begin::Row-->
+            <div class="row g-4">
+              <div class="col-md-6">
+                <!--begin::Quick Example-->
+                <div class="card card-primary card-outline mb-4">
+                  <!--end::Header-->
+                  <!--begin::Form-->
+                  <form method="post" action="carreras.php">
+                    
+                  
 
-            <!--begin::Col Listado-->
-            <div class="col-8">
-              <div class="card card-outline mb-4">
-                <div class="card-header">
-                  <div class="card-title">Listado de Especialidades</div>
-                </div>
-                <div class="card-body">
-                  <table class="table table-striped">
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <?php while ($e = $listado->fetch_assoc()): ?>
-                        <tr>
-                          <td><?php echo (int)$e['id_especialidad']; ?></td>
-                          <td><?php echo htmlspecialchars($e['nombre']); ?></td>
-                          <td>
-                            <a href="especialidades.php?accion=editar&id_especialidad=<?php echo (int)$e['id_especialidad']; ?>" class="btn btn-sm btn-warning">
-                              <i class="bi bi-pencil-fill"></i> Editar
-                            </a>
-                            <a href="especialidades.php?accion=eliminar&id_especialidad=<?php echo (int)$e['id_especialidad']; ?>"
-                               class="btn btn-sm btn-danger ms-1"
-                               onclick="return confirm('¿Eliminar especialidad?');">
-                              <i class="bi bi-trash-fill"></i> Eliminar
-                            </a>
-                          </td>
-                        </tr>
-                      <?php
+
+
+<div class="card-body">
+
+<?php if (isset($_GET['msg'])): ?>
+<p><strong><?php echo htmlspecialchars($_GET['msg']); ?></strong></p>
+<?php
+endif; ?>
+<div class="card-body">
+
+<h2 class="card-header" ><div class="card-title"><?php echo $carreraEditar['id_carrera'] > 0 ? 'Editar Carrera' : 'Agregar Carrera'; ?></h2></div>
+<input type="hidden" name="id_carrera" value="<?php echo (int)$carreraEditar['id_carrera']; ?>">
+<div class="card-body">
+<label>Nombre de la carrera</label>
+<input type="text" class="form-control"  name="nombre" required value="<?php echo htmlspecialchars((string)$carreraEditar['nombre']); ?>">
+</div>
+<button class="btn btn-primary" type="submit"><?php echo $carreraEditar['id_carrera'] > 0 ? 'Guardar Cambios' : 'Agregar'; ?></button>
+<?php if ($carreraEditar['id_carrera'] > 0): ?>
+<a class="btn btn-danger" href="carreras.php">Cancelar</a>
+<?php
+endif; ?>
+</form>
+   </main>
+   <div class="app-content">
+
+ <div class="container-fluid">
+            <!--begin::Row-->
+            <div class="row">
+                <div class="card mb-2">
+       <h2>Listado de Carreras</h2>
+        <table class="table table-bordered">
+       <thead>
+        <tr>
+        <th>ID</th>
+        <th>Nombre</th>
+        <th>Acciones</th>
+        </tr>
+        </thead>
+          <tbody>
+          <?php while ($c = $listado->fetch_assoc()): ?>
+          <tr>
+          <td><?php echo (int)$c['id_carrera']; ?></td>
+          <td><?php echo htmlspecialchars($c['nombre']); ?></td>
+          <td class="acciones">
+          <a class="btn btn-primary" href="carreras.php?accion=editar&id_carrera=<?php echo (int)$c['id_carrera']; ?>">Editar</a>
+          <a class="btn btn-danger" href="carreras.php?accion=eliminar&id_carrera=<?php echo (int)$c['id_carrera']; ?>" onclick="return confirm('Eliminar carrera?');">Eliminar</a>
+          </td>
+          </tr>
+          <?php
 endwhile; ?>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            <!--end::Col Listado-->
-
-          </div>
+          </tbody>
+        </table>
+</div>
         </div>
-      </div>
-      <!--end::App Content-->
-
-    </main>
-    <!--end::App Main-->
-
-    <!--begin::Footer-->
-    <footer class="app-footer">
-      <strong>Copyright &copy; 2014-2025&nbsp;<a href="https://adminlte.io" class="text-decoration-none">AdminLTE.io</a>.</strong>
-      All rights reserved.
-    </footer>
-    <!--end::Footer-->
-
-  </div>
-  <!--end::App Wrapper-->
-
-  <!--begin::Scripts-->
-  <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es6.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
-  <script src="js/adminlte.js"></script>
-  <script>
-    const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
-    const Default = {
-      scrollbarTheme: 'os-theme-light',
-      scrollbarAutoHide: 'leave',
-      scrollbarClickScroll: true,
-    };
-    document.addEventListener('DOMContentLoaded', function () {
-      const sidebarWrapper = document.querySelector(SELECTOR_SIDEBAR_WRAPPER);
-      if (sidebarWrapper && OverlayScrollbarsGlobal?.OverlayScrollbars !== undefined) {
-        OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, {
-          scrollbars: {
-            theme: Default.scrollbarTheme,
-            autoHide: Default.scrollbarAutoHide,
-            clickScroll: Default.scrollbarClickScroll,
-          },
-        });
-      }
-    });
-  </script>
-  <!--end::Scripts-->
-
+        
+</div>
 </body>
-<!--end::Body-->
 </html>
